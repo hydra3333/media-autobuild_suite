@@ -1824,9 +1824,9 @@ _vapoursynth_install() {
         do_simple_print "${orange}Vapoursynth is known to be broken on 32-bit and will be disabled"'!'"${reset}"
         return 1
     fi
-    _python_ver=3.11.7
-    _python_lib=python311
-    _vsver=65
+    _python_ver=3.12.2
+    _python_lib=python312
+    _vsver=66
     _check=("lib$_python_lib.a")
     if files_exist "${_check[@]}"; then
         do_print_status "python $_python_ver" "$green" "Up-to-date"
@@ -1840,7 +1840,7 @@ _vapoursynth_install() {
     _check=(lib{vapoursynth,vsscript}.a vapoursynth{,-script}.pc vapoursynth/{VS{Helper,Script},VapourSynth}.h)
     if pc_exists "vapoursynth = $_vsver" && files_exist "${_check[@]}"; then
         do_print_status "vapoursynth R$_vsver" "$green" "Up-to-date"
-    elif do_wget "https://github.com/vapoursynth/vapoursynth/releases/download/R$_vsver/VapourSynth${bits%bit}-Portable-R$_vsver.7z"; then
+    elif do_wget "https://github.com/vapoursynth/vapoursynth/releases/download/R$_vsver/VapourSynth${bits%bit}-Portable-R$_vsver.zip"; then
         do_uninstall {vapoursynth,vsscript}.lib include/vapoursynth "${_check[@]}"
         do_install sdk/include/*.h include/vapoursynth/
 
