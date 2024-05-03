@@ -1194,7 +1194,6 @@ _check=(libkvazaar.{,l}a kvazaar.pc kvazaar.h)
 if { [[ $other265 = y ]] || { [[ $ffmpeg != no ]] && enabled libkvazaar; }; } &&
     do_vcs "$SOURCE_REPO_LIBKVAZAAR"; then
     do_patch "https://github.com/m-ab-s/mabs-patches/raw/master/kvazaar/0001-Mingw-w64-Re-enable-avx2.patch" am
-    do_patch "https://github.com/ultravideo/kvazaar/pull/407.patch" am
     do_uninstall kvazaar_version.h "${_check[@]}"
     do_autogen
     [[ $standalone = y || $other265 = y ]] ||
@@ -2607,7 +2606,9 @@ if [[ $cyanrip = y ]]; then
     if do_vcs "$SOURCE_REPO_LIBMUSICBRAINZ"; then
         do_patch "https://github.com/metabrainz/libmusicbrainz/compare/master...wiiaboo:libmusicbrainz:master.patch" am
         do_uninstall "${_check[@]}" include/musicbrainz5
-        LIBRARY_PATH="$(cygpath -pm "$LOCALDESTDIR/lib:$MINGW_PREFIX/lib")" do_cmakeinstall
+        CXXFLAGS+=" $($PKG_CONFIG --cflags libxml-2.0)" \
+            LDFLAGS+=" $($PKG_CONFIG --libs libxml-2.0)" \
+            do_cmakeinstall
         do_checkIfExist
     fi
 
