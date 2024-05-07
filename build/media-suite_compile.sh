@@ -1118,14 +1118,7 @@ if { [[ $dav1d = y ]] || [[ $libavif = y ]] || { [[ $ffmpeg != no ]] && enabled 
     do_checkIfExist
 fi
 
-_check=(/opt/cargo/bin/cargo-c{build,api}.exe)
-if { enabled librav1e || [[ $libavif = y ]]; } &&
-    do_vcs "$SOURCE_REPO_CARGOC"; then
-    # Delete any old cargo-cbuilds
-    [[ -x /opt/cargo/bin/cargo-cbuild.exe ]] && log uninstall.cargo-c cargo uninstall -q cargo-c
-    do_rustinstall
-    do_checkIfExist
-fi
+{ enabled librav1e || [[ $libavif = y ]]; } && do_pacman_install cargo-c
 
 _check=()
 { [[ $rav1e = y ]] ||
@@ -2176,17 +2169,6 @@ if [[ $ffmpeg != no ]]; then
             # remove redundant -L and -l flags from extralibs
             do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-deduplicate-linking-flags.patch" am
         fi
-        # Removes hardcoding of libstdc++ for clang
-        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/ffmpeg/0001-configure-strip-hardcoded-lstdc.patch" am
-
-        # Removes hardcoding of -lstdc++ and -lc++ from the .pc files
-        if [[ $CC == *clang* ]]; then
-            find "$MINGW_PREFIX/lib/pkgconfig" "$LOCALDESTDIR/lib/pkgconfig" -name '*.pc' -exec grep -q -- -lstdc++ {} \; -exec sed -i 's;-lstdc++;;g' {} +
-            find "$MINGW_PREFIX/lib/pkgconfig" "$LOCALDESTDIR/lib/pkgconfig" -name '*.pc' -exec grep -q -- -lc++ {} \; -exec sed -i 's;-lc++;;g' {} +
-        fi
-
-        # Fix for libjxl changes that removes including version.h from decode.h
-        grep_or_sed jxl/version.h libavcodec/libjxl.h 's;#include <jxl/decode.h>;#include <jxl/version.h>\n&;'
 
         _patches=$(git rev-list origin/master.. --count)
         [[ $_patches -gt 0 ]] &&

@@ -5,7 +5,6 @@ SOURCE_REPO_AMF=https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git
 SOURCE_REPO_ANGLE=https://chromium.googlesource.com/angle/angle
 SOURCE_REPO_ARRIB24=https://github.com/nkoriyama/aribb24.git
 SOURCE_REPO_AVISYNTH=https://github.com/AviSynth/AviSynthPlus.git
-SOURCE_REPO_CARGOC=https://github.com/lu-zero/cargo-c.git
 SOURCE_REPO_CODEC2=https://github.com/drowe67/codec2.git
 SOURCE_REPO_CURL=https://github.com/curl/curl.git
 SOURCE_REPO_CYANRIP=https://github.com/cyanreg/cyanrip.git
@@ -70,6 +69,7 @@ SOURCE_REPO_LIBWEBP=https://chromium.googlesource.com/webm/libwebp
 SOURCE_REPO_LIBXML2=https://gitlab.gnome.org/GNOME/libxml2.git
 SOURCE_REPO_LIBZEN=https://github.com/MediaArea/ZenLib.git
 SOURCE_REPO_LUAJIT=https://github.com/LuaJIT/LuaJIT.git
+SOURCE_REPO_MABS=https://github.com/m-ab-s/media-autobuild_suite.git
 SOURCE_REPO_MEDIAINFO=https://github.com/MediaArea/MediaInfo.git
 SOURCE_REPO_MPV=https://github.com/mpv-player/mpv.git#tag=v0.36.0
 SOURCE_REPO_MUJS=https://github.com/ccxvii/mujs.git
