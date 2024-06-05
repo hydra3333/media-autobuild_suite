@@ -106,7 +106,7 @@ intltool libtool patch python xmlto make zip unzip git subversion wget p7zip man
 gperf winpty texinfo gyp doxygen autoconf-archive itstool ruby mintty flex msys2-runtime pacutils
 
 set mingwpackages=cmake dlfcn libpng nasm pcre tools-git yasm ninja pkgconf meson ccache jq ^
-clang gettext-tools lld rust
+clang gettext-tools
 
 :: built-ins
 set ffmpeg_options_builtin=--disable-autodetect amf bzlib cuda cuvid d3d11va dxva2 ^
@@ -118,7 +118,7 @@ libdav1d libaom --disable-debug libfdk-aac
 
 :: options used in zeranoe builds and not present above
 set ffmpeg_options_zeranoe=fontconfig gnutls libass libbluray libfreetype ^
-libmfx libmysofa libopencore-amrnb libopencore-amrwb libopenjpeg libsnappy ^
+libharfbuzz libmfx libmysofa libopencore-amrnb libopencore-amrwb libopenjpeg libsnappy ^
 libsoxr libspeex libtheora libtwolame libvidstab libvo-amrwbenc ^
 libwebp libxml2 libzimg libshine gpl openssl libtls avisynth mbedtls libxvid ^
 libopenmpt version3 librav1e libsrt libgsm libvmaf libsvtav1
@@ -1752,7 +1752,7 @@ for %%i in (%instdir%\msys64\usr\ssl\cert.pem) do if %%~zi==0 call :runBash cert
 rem installmingw
 rem extra package for clang
 if %CC%==clang (
-    set "mingwpackages=%mingwpackages% gcc-compat"
+    set "mingwpackages=%mingwpackages% gcc-compat lld"
 ) else (
     set "mingwpackages=%mingwpackages% binutils gcc"
 )
@@ -1950,7 +1950,9 @@ goto :EOF
     echo.export DXSDK_DIR ACLOCAL_PATH PKG_CONFIG PKG_CONFIG_PATH CFLAGS CXXFLAGS LDFLAGS
     echo.
     echo.export CARGO_HOME="/opt/cargo"
-    echo.export CCACHE_DIR="${LOCALBUILDDIR}/cache"
+    echo.if [[ -z "$CCACHE_DIR" ]]; then
+    echo.    export CCACHE_DIR="${LOCALBUILDDIR}/cache"
+    echo.fi
     echo.
     echo.export PYTHONPATH=
     echo.
