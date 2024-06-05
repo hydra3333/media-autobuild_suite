@@ -1418,6 +1418,8 @@ if [[ $mediainfo = y ]]; then
     fi
     fix_cmake_crap_exports "$LOCALDESTDIR/lib/cmake/zenlib"
 
+    sed -i 's;message(FATAL_ERROR "The imported target;message(WARNING "The imported target;' \
+        "$MINGW_PREFIX"/lib/cmake/CURL/CURLTargets.cmake
     _check=(libmediainfo.{a,pc})
     _deps=(lib{zen,curl}.a)
     if do_vcs "$SOURCE_REPO_LIBMEDIAINFO" libmediainfo; then
@@ -2141,10 +2143,15 @@ if [[ $ffmpeg != no ]]; then
     enabled chromaprint && do_addOption --extra-cflags=-DCHROMAPRINT_NODLL &&
         { do_pacman_remove fftw; do_pacman_install chromaprint; }
     if enabled libzmq; then
-        do_pacman_install zeromq
-        grep_or_sed ws2_32 "$MINGW_PREFIX"/lib/pkgconfig/libzmq.pc \
-            's/-lpthread/& -lws2_32/'
-        do_addOption --extra-cflags=-DZMQ_STATIC
+        if [[ $bits = 64bit ]]; then
+            do_pacman_install zeromq
+            grep_or_sed ws2_32 "$MINGW_PREFIX"/lib/pkgconfig/libzmq.pc \
+                's/-lpthread/& -lws2_32/'
+            do_addOption --extra-cflags=-DZMQ_STATIC
+        else
+            do_removeOption --enable-libzmq
+            do_simple_print "${orange}libzmq is not available for 32-bit, disabling${reset}"
+        fi
     fi
     enabled frei0r && do_addOption --extra-libs=-lpsapi
     enabled libxml2 && do_addOption --extra-cflags=-DLIBXML_STATIC
