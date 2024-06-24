@@ -700,19 +700,17 @@ if enabled libspeex && do_vcs "$SOURCE_REPO_SPEEX"; then
     do_checkIfExist
 fi
 
-_check=(libFLAC{,++}.{,l}a flac{,++}.pc)
+_check=(libFLAC{,++}.a flac{,++}.pc)
 [[ $standalone = y ]] && _check+=(bin-audio/flac.exe)
-if [[ $flac = y ]] && do_vcs "$SOURCE_REPO_FLAC"; then
-    do_autogen
-    if [[ $standalone = y ]]; then
-        _check+=(bin-audio/metaflac.exe)
-    else
-        sed -i "/^SUBDIRS/,/[^\\]$/{/flac/d;}" src/Makefile.in
+if [[ $flac = y ]]; then
+    if do_vcs "$SOURCE_REPO_FLAC"; then
+        if [[ $standalone = y ]]; then
+            _check+=(bin-audio/metaflac.exe)
+        fi
+        do_uninstall include/FLAC{,++} share/aclocal/libFLAC{,++}.m4 "${_check[@]}"
+        do_cmakeinstall audio -DBUILD_{DOCS,DOXYGEN,EXAMPLES,TESTING}=OFF -DINSTALL_MANPAGES=OFF
+        do_checkIfExist
     fi
-    sed -i 's|__declspec(dllimport)||g' include/FLAC{,++}/export.h
-    do_uninstall include/FLAC{,++} share/aclocal/libFLAC{,++}.m4 "${_check[@]}"
-    do_separate_confmakeinstall audio --disable-{xmms-plugin,doxygen-docs}
-    do_checkIfExist
 elif [[ $sox = y ]] || { [[ $standalone = y ]] && enabled_any libvorbis libopus; }; then
     do_pacman_install flac
     grep_and_sed dllimport "$MINGW_PREFIX"/include/FLAC++/export.h \
@@ -794,13 +792,12 @@ fi
 _check=(libopus.{,l}a opus.pc opus/opus.h)
 if enabled libopus && do_vcs "$SOURCE_REPO_OPUS"; then
     do_pacman_remove opus
-    do_pacman_install wget # autogen calls wget, but msys/wget seems to fail for some people, while the mingw64 one works
     do_uninstall include/opus "${_check[@]}"
     (
         sha=$(grep dnn/download_model.sh autogen.sh | awk -F'"' '{print $2}')
-        model=opus_data-${sha:-735117b}.tar.gz
+        model=opus_data-${sha}.tar.gz
         pushd . > /dev/null
-        do_wget -r -q -n "https://media.xiph.org/opus/models/$model"
+        [ -f "/build/$model" ] || do_wget -r -q -n "https://media.xiph.org/opus/models/$model"
         popd > /dev/null || return 1
         ln -s "$LOCALBUILDDIR/$model" .
     )
@@ -1550,7 +1547,7 @@ if [[ $bits = 32bit ]]; then
 elif { [[ $svtav1 = y ]] || enabled libsvtav1; } &&
     do_vcs "$SOURCE_REPO_SVTAV1"; then
     do_uninstall include/svt-av1 "${_check[@]}" include/svt-av1
-    do_cmakeinstall video -DUNIX=OFF
+    do_cmakeinstall video -DUNIX=OFF -DENABLE_AVX512=ON
     do_checkIfExist
 fi
 
@@ -1947,7 +1944,8 @@ _check=(bin-video/vvenc{,FF}app.exe
     vvenc/vvenc.h
     libvvenc.{a,pc}
     lib/cmake/vvenc/vvencConfig.cmake)
-if [[ $bits = 64bit && $vvenc = y ]] &&
+if [[ $bits = 64bit && $vvenc = y ]] ||
+    { [[ $ffmpeg != no && $bits = 64bit ]] && enabled libvvenc; } &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
     do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DVVENC_INSTALL_FULLFEATURE_APP=ON
