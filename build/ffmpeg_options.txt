@@ -122,8 +122,8 @@
 #--disable-libplacebo
 --enable-libjxl
 #--disable-libjxl
-#--enable-libvvenc
---disable-libvvenc
+--enable-libvvenc
+#--disable-libvvenc
 
 # Full plus options that add shared dependencies
 --enable-opencl
