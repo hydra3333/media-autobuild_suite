@@ -7,6 +7,7 @@
 --enable-bzlib
 --enable-cuda
 --enable-cuvid
+--enable-d3d12va
 --enable-d3d11va
 --enable-dxva2
 --enable-iconv
@@ -40,7 +41,7 @@
 --enable-libbluray
 --enable-libfreetype
 --enable-libharfbuzz
---enable-libmfx
+--enable-libvpl
 --enable-libmysofa
 --enable-libopencore-amrnb
 --enable-libopencore-amrwb
@@ -67,7 +68,6 @@
 --enable-libxvid
 --enable-libopenmpt
 --enable-version3
-#--disable-librav1e
 --enable-librav1e
 --enable-libsrt
 --enable-libgsm
@@ -109,9 +109,7 @@
 --enable-vapoursynth
 #--enable-liblensfun
 --enable-libglslang
-#--disable-libglslang
 --enable-vulkan
-#--disable-vulkan
 #--enable-libdavs2
 --disable-libdavs2
 #--enable-libxavs2
@@ -119,11 +117,10 @@
 #--enable-libuavs3d
 --disable-libuavs3d
 --enable-libplacebo
-#--disable-libplacebo
 --enable-libjxl
-#--disable-libjxl
 --enable-libvvenc
-#--disable-libvvenc
+--enable-libvvdec
+--enable-liblc3
 
 # Full plus options that add shared dependencies
 --enable-opencl
