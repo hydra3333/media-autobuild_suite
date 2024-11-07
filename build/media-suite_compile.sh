@@ -2172,6 +2172,7 @@ if { { [[ $mpv != n ]]  && ! mpv_disabled libplacebo; } ||
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/shaderc/0002-shaderc_util-add-install.patch" am
     do_uninstall "${_check[@]}" include/shaderc include/libshaderc_util
 
+    grep_and_sed d0e67c58134377f065a509845ca6b7d463f5b487 DEPS 's/d0e67c58134377f065a509845ca6b7d463f5b487/76cc41d26f6902de543773023611e40fbcdde58b/g'
     log dependencies /usr/bin/python ./utils/git-sync-deps
 
     # fix python indentation errors from non-existant code review
@@ -2510,6 +2511,9 @@ if [[ $mplayer = y ]] && check_mplayer_updates; then
     }
 
     grep_or_sed windows libmpcodecs/ad_spdif.c '/#include "mp_msg.h/ a\#include <windows.h>'
+    grep_or_sed gnu11 configure 's/c11/gnu11/g'
+    # shellcheck disable=SC2016
+    sed -i '/%\$(EXESUF):/{n; s/\$(CC)/\$(CXX)/g};/mencoder$(EXESUF)/{n; s/\$(CC)/\$(CXX)/g}' Makefile
 
     _notrequired=true
     do_configure --bindir="$LOCALDESTDIR"/bin-video \
@@ -2519,7 +2523,7 @@ if [[ $mplayer = y ]] && check_mplayer_updates; then
     --extra-ldflags='-Wl,--allow-multiple-definition' --enable-{static,runtime-cpudetection} \
     --disable-{gif,cddb} "${faac_opts[@]}" --with-dvdread-config="$PKG_CONFIG dvdread" \
     --with-freetype-config="$PKG_CONFIG freetype2" --with-dvdnav-config="$PKG_CONFIG dvdnav" &&
-        do_makeinstall && do_checkIfExist
+        do_makeinstall CXX="$CXX" && do_checkIfExist
     unset _notrequired faac_opts
 fi
 
