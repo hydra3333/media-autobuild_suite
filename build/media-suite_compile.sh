@@ -1198,8 +1198,6 @@ if { [[ $rav1e = y ]] || [[ $libavif = y ]] || enabled librav1e; } &&
     if [[ $libavif = y ]] || enabled librav1e; then
         rm -f "$CARGO_HOME/config" 2> /dev/null
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
-            CC="ccache clang" \
-            CXX="ccache clang++" \
             log "install-rav1e-c" cargo capi install \
             --release --jobs "$cpuCount" --prefix="$LOCALDESTDIR" \
             --destdir="$PWD/install-$bits"
@@ -1981,6 +1979,7 @@ if [[ $av1an != n ]]; then
     _check=("$av1an_bindir"/av1an.exe)
     if do_vcs "$SOURCE_REPO_AV1AN"; then
         do_uninstall "${_check[@]}"
+        do_pacman_install clang
         PKG_CONFIG="$LOCALDESTDIR/bin/ab-pkg-config-static.bat" \
             VAPOURSYNTH_LIB_DIR="$LOCALDESTDIR/lib" do_rust
         do_install "target/$CARCH-pc-windows-gnu$rust_target_suffix/release/av1an.exe" $av1an_bindir/
