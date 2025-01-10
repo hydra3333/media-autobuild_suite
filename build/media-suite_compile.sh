@@ -508,7 +508,7 @@ if { { [[ $ffmpeg != no || $standalone = y ]] && enabled libtesseract; } ||
         grep_or_sed 'Requires.private' libtiff-4.pc.in \
             '/Libs:/ a\Requires.private: libjpeg liblzma zlib libzstd glut'
         CFLAGS+=" -DFREEGLUT_STATIC" \
-            do_cmakeinstall global -D{webp,jbig,lerc}=OFF "${extracommands[@]}"
+            do_cmakeinstall global -D{webp,jbig,lerc,tiff-opengl}=OFF "${extracommands[@]}"
         do_checkIfExist
     fi
 fi
