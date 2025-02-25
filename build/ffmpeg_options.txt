@@ -90,6 +90,7 @@
 --enable-libsvthevc
 #--disable-libsvthevc
 #--enable-libsvtvp9
+--disable-libsvtvp9
 #--enable-libkvazaar
 --disable-libkvazaar
 --enable-libmodplug
