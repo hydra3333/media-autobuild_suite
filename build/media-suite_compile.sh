@@ -298,10 +298,13 @@ if [[ $mplayer = y || $mpv = y ]] ||
 
     _deps=(libfreetype.a)
     _check=(libfontconfig.a fontconfig.pc)
-    [[ $ffmpeg = sharedlibs ]] && enabled_any {lib,}fontconfig &&
-        do_removeOption "--enable-(lib|)fontconfig"
+    if [[ $ffmpeg = sharedlibs ]]; then
+        enabled_any {lib,}fontconfig && do_removeOption "--enable-(lib|)fontconfig"
+        _check+=(bin-global/libfontconfig-1.dll libfontconfig.dll.a)
+    fi
     if enabled_any {lib,}fontconfig &&
         do_vcs "$SOURCE_REPO_FONTCONFIG"; then
+        do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/fontconfig/0001-meson-change-default_library-to-default_both_librari.patch" am
         do_uninstall include/fontconfig "${_check[@]}"
         do_pacman_install gperf
         extracommands=()
@@ -310,6 +313,8 @@ if [[ $mplayer = y || $mpv = y ]] ||
         do_checkIfExist
         unset extracommands
     fi
+    # Prevents ffmpeg from trying to link to a broken libfontconfig.dll.a
+    [[ $ffmpeg = sharedlibs ]] || do_uninstall bin-global/libfontconfig-1.dll libfontconfig.dll.a
 
     grep_or_sed iconv "$LOCALDESTDIR/lib/pkgconfig/fontconfig.pc" 's/Libs:.*/& -liconv/'
 
@@ -2065,6 +2070,7 @@ if [[ $bits = 64bit && $vvenc = y ]] ||
     { [[ $ffmpeg != no && $bits = 64bit ]] && enabled libvvenc; } &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
+    grep_and_sed '"" _json' thirdparty/nlohmann_json/single_include/nlohmann/json.hpp 's|"" _json|""_json|g'
     do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DVVENC_INSTALL_FULLFEATURE_APP=ON
     do_checkIfExist
 else
@@ -2078,6 +2084,8 @@ _check=(bin-video/vvdecapp.exe
 if [[ $bits = 64bit && $vvdec = y ]] ||
     { [[ $ffmpeg != no && $bits = 64bit ]] && enabled libvvdec; } &&
     do_vcs "$SOURCE_REPO_LIBVVDEC"; then
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vvdec/0001-TypeDef-cast-mem-cpy-set-this-.-with-void-to-silence.patch" am
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vvdec/0002-CodingStructure-cast-memset-with-void-to-silence-non.patch" am
     do_uninstall include/vvdec lib/cmake/vvdec "${_check[@]}"
     do_cmakeinstall video -DVVDEC_ENABLE_LINK_TIME_OPT=OFF -DVVDEC_INSTALL_VVDECAPP=ON
     do_checkIfExist
@@ -2619,20 +2627,33 @@ if [[ $mplayer = y ]] && check_mplayer_updates; then
         git -C ffmpeg checkout -qf --no-track -B master origin/HEAD
     }
 
-    grep_or_sed windows libmpcodecs/ad_spdif.c '/#include "mp_msg.h/ a\#include <windows.h>'
-    grep_or_sed gnu11 configure 's/c11/gnu11/g'
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/mplayer/0001-ae_lavc-fix-deprecated-warnings.patch"
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/mplayer/0002-configure-fix-cddb-on-mingw-w64.patch"
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/mplayer/0003-w32_common-add-casts-for-Wint-conversion.patch"
+    do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/mplayer/0004-configure-add-checking-libass-from-pkg-config.patch"
+
+    # grep_or_sed windows libmpcodecs/ad_spdif.c '/#include "mp_msg.h/ a\#include <windows.h>'
+    # grep_or_sed gnu11 configure 's/c11/gnu11/g'
     # shellcheck disable=SC2016
     sed -i '/%\$(EXESUF):/{n; s/\$(CC)/\$(CXX)/g};/mencoder$(EXESUF)/{n; s/\$(CC)/\$(CXX)/g}' Makefile
 
     _notrequired=true
-    do_configure --bindir="$LOCALDESTDIR"/bin-video \
-    --extra-cflags='-fpermissive -DPTW32_STATIC_LIB -O3 -DMODPLUG_STATIC -Wno-int-conversion -Wno-error=incompatible-function-pointer-types' \
-    --extra-libs="-llzma -liconv -lws2_32 -lpthread -lwinpthread -lpng -lwinmm $($PKG_CONFIG --libs libilbc) \
-        $(enabled vapoursynth && $PKG_CONFIG --libs vapoursynth-script)" \
-    --extra-ldflags='-Wl,--allow-multiple-definition' --enable-{static,runtime-cpudetection} \
-    --disable-{gif,cddb} "${faac_opts[@]}" --with-dvdread-config="$PKG_CONFIG dvdread" \
-    --with-freetype-config="$PKG_CONFIG freetype2" --with-dvdnav-config="$PKG_CONFIG dvdnav" &&
+    # do_configure --bindir="$LOCALDESTDIR"/bin-video \
+    # --extra-cflags='-fpermissive -DPTW32_STATIC_LIB -O3 -DMODPLUG_STATIC -Wno-int-conversion -Wno-error=incompatible-function-pointer-types' \
+    # --extra-libs="-llzma -liconv -lws2_32 -lpthread -lwinpthread -lpng -lwinmm $($PKG_CONFIG --libs libilbc) \
+    #     $(enabled vapoursynth && $PKG_CONFIG --libs vapoursynth-script)" \
+    # --extra-ldflags='-Wl,--allow-multiple-definition' --enable-{static,runtime-cpudetection} \
+    # --disable-{gif,cddb} "${faac_opts[@]}" --with-dvdread-config="$PKG_CONFIG dvdread" \
+    # --with-freetype-config="$PKG_CONFIG freetype2" --with-dvdnav-config="$PKG_CONFIG dvdnav" &&
+    #     do_makeinstall CXX="$CXX" && do_checkIfExist
+
+    do_configure \
+        --bindir="$LOCALDESTDIR"/bin-video \
+        --enable-{static,runtime-cpudetection} \
+        --extra-cflags='-Wno-error=incompatible-pointer-types' \
+        "${faac_opts[@]}" &&
         do_makeinstall CXX="$CXX" && do_checkIfExist
+
     unset _notrequired faac_opts
 fi
 
