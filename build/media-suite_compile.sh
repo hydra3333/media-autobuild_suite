@@ -287,11 +287,11 @@ if [[ $mplayer = y || $mpv = y ]] ||
     [[ $ffmpeg = sharedlibs ]] && _check+=(bin-video/libfreetype-6.dll libfreetype.dll.a)
     if do_vcs "$SOURCE_REPO_FREETYPE"; then
         do_uninstall include/freetype2 bin-global/freetype-config \
-            bin{,-video}/libfreetype-6.dll libfreetype.dll.a "${_check[@]}"
+            bin{,-video,-global}/libfreetype-6.dll libfreetype.dll.a "${_check[@]}"
         extracommands=(-D{harfbuzz,png,bzip2,brotli,zlib,tests}"=disabled")
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-library=both)
         do_mesoninstall global "${extracommands[@]}"
-        [[ $ffmpeg = sharedlibs ]] && do_install "$LOCALDESTDIR"/bin/libfreetype-6.dll bin-video/
+        [[ $ffmpeg = sharedlibs ]] && do_install "$LOCALDESTDIR"/bin-global/libfreetype-6.dll bin-video/
         do_checkIfExist
         unset extracommands
     fi
@@ -309,6 +309,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
         do_pacman_install gperf
         extracommands=()
         [[ $standalone = y ]] || extracommands+=(-Dtools=disabled)
+        [[ $ffmpeg = sharedlibs ]] && extracommands+=(--default-both-library=both)
         do_mesoninstall global -Ddoc=disabled -Dtests=disabled "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
@@ -355,6 +356,7 @@ if [[ $mplayer = y || $mpv = y ]] ||
         enabled_any {lib,}fontconfig || extracommands+=(--disable-fontconfig)
         [[ $ffmpeg = sharedlibs ]] && extracommands+=(--disable-fontconfig --enable-shared)
         do_separate_confmakeinstall video "${extracommands[@]}"
+        [[ $ffmpeg = sharedlibs ]] && do_install "$LOCALDESTDIR"/bin/libass-9.dll bin-video/
         do_checkIfExist
         unset extracommands
     fi
@@ -2069,9 +2071,10 @@ _check=(bin-video/vvenc{,FF}app.exe
 if [[ $bits = 64bit && $vvenc = y ]] ||
     { [[ $ffmpeg != no && $bits = 64bit ]] && enabled libvvenc; } &&
     do_vcs "$SOURCE_REPO_LIBVVENC"; then
+    do_patch "https://github.com/fraunhoferhhi/vvenc/pull/522.patch" am
+    do_pacman_install nlohmann-json
     do_uninstall include/vvenc lib/cmake/vvenc "${_check[@]}"
-    grep_and_sed '"" _json' thirdparty/nlohmann_json/single_include/nlohmann/json.hpp 's|"" _json|""_json|g'
-    do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DVVENC_INSTALL_FULLFEATURE_APP=ON
+    do_cmakeinstall video -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DVVENC_INSTALL_FULLFEATURE_APP=ON -DVVENC_ENABLE_THIRDPARTY_JSON=SYSTEM
     do_checkIfExist
 else
     pc_exists libvvenc || do_removeOption "--enable-libvvenc"
