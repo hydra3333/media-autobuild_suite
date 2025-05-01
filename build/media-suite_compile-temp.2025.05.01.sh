@@ -927,6 +927,8 @@ if [[ $standalone = y ]] && enabled libvorbis &&
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/vorbis-tools/0001-utf8-add-empty-convert_free_charset-for-Windows.patch" am
     export CFLAGS="-std=gnu89 $CFLAGS"
     export CXXFLAGS="-std=gnu++17 $CXXFLAGS"
+    rm -f "$_dir/share/getopt.c"
+    rm -f "$_dir/include/getopt.h"
     do_autoreconf
     do_uninstall "${_check[@]}"
     extracommands=()
@@ -1010,6 +1012,7 @@ if [[ $ffmpeg != no ]] && enabled libcodec2; then
             grep -ERl "\b(lsp|lpc)_to_(lpc|lsp)" --include="*.[ch]" | \
                 xargs -r sed -ri "s;((lsp|lpc)_to_(lpc|lsp));c2_\1;g"
         fi
+        export CFLAGS="-std=gnu11 $CFLAGS"
         do_cmakeinstall -D{UNITTEST,INSTALL_EXAMPLES}=off \
             -DCMAKE_INSTALL_BINDIR="$(pwd)/build-$bits/_bin"
         do_checkIfExist
