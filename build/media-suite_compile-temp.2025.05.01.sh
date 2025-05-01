@@ -1737,6 +1737,7 @@ _check=(xvc.pc xvc{enc,dec}.h libxvc{enc,dec}.a bin-video/xvc{enc,dec}.exe)
 if [[ $xvc == y ]] &&
     do_vcs "$SOURCE_REPO_XVC"; then
     do_uninstall "${_check[@]}"
+	export CXXFLAGS="-std=gnu++14 $CXXFLAGS"
     do_cmakeinstall video -DBUILD_TESTS=OFF -DENABLE_ASSERTIONS=OFF
     do_checkIfExist
 fi
