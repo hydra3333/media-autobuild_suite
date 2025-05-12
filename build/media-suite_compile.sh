@@ -489,6 +489,7 @@ if enabled_any gnutls librtmp || [[ $rtmpdump = y || $curl = gnutls ]]; then
         "https://www.gnupg.org/ftp/gcrypt/gnutls/v${_gnutls_ver%.*}/gnutls-${_gnutls_ver}.tar.xz"; then
         do_uninstall include/gnutls "${_check[@]}"
         grep_or_sed crypt32 lib/gnutls.pc.in 's/Libs.private.*/& -lcrypt32/'
+        grep_and_sed tests src/gl/Makefile.am 's|(SUBDIRS.*) tests|\1|'
         CFLAGS="-Wno-int-conversion" \
             do_separate_confmakeinstall \
             --disable-{cxx,doc,tools,tests,nls,rpath,libdane,guile,gcc-warnings} \
@@ -1225,6 +1226,9 @@ if { enabled libvpx || [[ $vpx = y ]]; } && do_vcs "$SOURCE_REPO_VPX" vpx; then
     [[ $standalone = y || $av1an != n ]] && _check+=(bin-video/vpxdec.exe) ||
         extracommands+=(--disable-{examples,webm-io,libyuv,postproc})
     do_uninstall include/vpx "${_check[@]}"
+    # Work around for semaphore.h not having struct _timespec64 info
+    grep_or_sed sys/timeb.h vp8/common/threading.h \
+        '/<semaphore.h>/ i\#include <sys/timeb.h>'
     create_build_dir
     [[ $bits = 32bit ]] && arch=x86 || arch=x86_64
     [[ $ffmpeg = sharedlibs ]] || extracommands+=(--enable-{vp9-postproc,vp9-highbitdepth})
@@ -2840,7 +2844,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
     ! mpv_disabled cplayer && _check+=(bin-video/mpv.{exe,com})
     _deps=(lib{ass,avcodec,vapoursynth,shaderc_combined,spirv-cross,placebo}.a "$MINGW_PREFIX"/lib/libuchardet.a)
     if do_vcs "$SOURCE_REPO_MPV"; then
-        do_patch "https://github.com/1480c1/mpv/commit/e26713d7b0e4a096c2039a263532ce818cc8043e.patch" am
+        do_patch "https://github.com/mpv-player/mpv/compare/master...1480c1:mpv:initguid.patch" am
         do_uninstall share/man/man1/mpv.1 include/mpv share/doc/mpv etc/mpv "${_check[@]}"
         hide_conflicting_libs
         create_ab_pkgconfig
