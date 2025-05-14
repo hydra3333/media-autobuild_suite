@@ -2160,7 +2160,6 @@ fi
 _check=(bin-video/uvg266.exe libuvg266.a uvg266.pc uvg266.h)
 if [[ $bits = 64bit && $uvg266 = y ]] &&
     do_vcs "$SOURCE_REPO_UVG266"; then
-    do_patch "https://github.com/ultravideo/uvg266/pull/37.patch" am
     do_uninstall version.h "${_check[@]}"
     do_cmakeinstall video -DBUILD_TESTING=OFF
     do_checkIfExist
@@ -2582,11 +2581,11 @@ if [[ $libheif != n ]] &&
     do_checkIfExist
 fi
 
-_check=(bin-video/heif-{dec,enc,info,thumbnailer,view}.exe)
+_check=(bin-video/heif-{dec,enc,info,thumbnailer}.exe)
 [[ $libheif = shared ]] && _check+=(bin-video/libheif.dll)
 if [[ $libheif != n ]] &&
     do_vcs "$SOURCE_REPO_LIBHEIF"; then
-    do_uninstall "${_check[@]}"
+    do_uninstall bin-video/heif-view.exe "${_check[@]}"
 
     do_pacman_install libjpeg-turbo
     pc_exists "libpng" || do_pacman_install libpng
