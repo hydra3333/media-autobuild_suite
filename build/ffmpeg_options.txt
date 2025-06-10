@@ -85,7 +85,8 @@
 --enable-libcdio
 --enable-libflite
 --enable-libfribidi
---enable-libgme
+--disable-libgme
+#--enable-libgme
 --enable-libilbc
 --enable-libsvthevc
 #--enable-libsvtvp9
