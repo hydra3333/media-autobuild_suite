@@ -37,6 +37,7 @@ while true; do
     --ffmpegUpdate=* ) ffmpegUpdate=${1#*=} && shift ;;
     --ffmpegPath=* ) ffmpegPath="${1#*=}"; shift ;;
     --ffmpegChoice=* ) ffmpegChoice=${1#*=} && shift ;;
+    --ffmpegKeepLegacyOpts=* ) ffmpegKeepLegacyOpts=${1#*=} && shift ;;
     --mplayer=* ) mplayer=${1#*=} && shift ;;
     --mpv=* ) mpv=${1#*=} && shift ;;
     --deleteSource=* ) deleteSource=${1#*=} && shift ;;
@@ -1442,27 +1443,25 @@ if { { [[ $ffmpeg != no ]] &&
     do_checkIfExist
 fi
 
-_check=(libdvdread.{,l}a dvdread.pc)
+_check=(libdvdread.a dvdread.pc)
 if { { [[ $ffmpeg != no ]] && enabled_any libdvdread libdvdnav; } ||
     [[ $mplayer = y ]] || mpv_enabled dvdnav; } &&
     do_vcs "$SOURCE_REPO_LIBDVDREAD" dvdread; then
-    do_autoreconf
     do_uninstall include/dvdread "${_check[@]}"
-    do_separate_confmakeinstall
+    do_mesoninstall
     do_checkIfExist
 fi
 [[ -f $LOCALDESTDIR/lib/pkgconfig/dvdread.pc ]] &&
     grep_or_sed "Libs.private" "$LOCALDESTDIR"/lib/pkgconfig/dvdread.pc \
         "/Libs:/ a\Libs.private: -ldl -lpsapi"
 
-_check=(libdvdnav.{,l}a dvdnav.pc)
+_check=(libdvdnav.a dvdnav.pc)
 _deps=(libdvdread.a)
 if { { [[ $ffmpeg != no ]] && enabled libdvdnav; } ||
     [[ $mplayer = y ]] || mpv_enabled dvdnav; } &&
     do_vcs "$SOURCE_REPO_LIBDVDNAV" dvdnav; then
-    do_autoreconf
     do_uninstall include/dvdnav "${_check[@]}"
-    do_separate_confmakeinstall
+    do_mesoninstall
     do_checkIfExist
 fi
 
@@ -1497,13 +1496,12 @@ if { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; th
     fi
 fi
 
-_check=(libbluray.{{,l}a,pc})
+_check=(libbluray.{a,pc})
 if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; } &&
     do_vcs "$SOURCE_REPO_LIBBLURAY"; then
     [[ -f contrib/libudfread/.git ]] || do_git_submodule
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libbluray/0001-dec-prefix-with-libbluray-for-now.patch" am
-    do_autoreconf
-    do_uninstall include/libbluray share/java "${_check[@]}"
+    do_uninstall include/libbluray share/java "${_check[@]}" libbluray.la
     sed -i 's|__declspec(dllexport)||g' jni/win32/jni_md.h
     extracommands=()
     log javahome get_java_home
@@ -1524,16 +1522,16 @@ if { { [[ $ffmpeg != no ]] && enabled libbluray; } || ! mpv_disabled libbluray; 
         export JDK_HOME=''
         export JAVA_HOME
     else
-        extracommands+=(--disable-bdjava-jar)
+        extracommands+=(-Dbdj_jar=disabled)
     fi
-    if enabled libxml2; then
-        sed -ri 's;(Cflags.*);\1 -DLIBXML_STATIC;' src/libbluray.pc.in
-    else
-        extracommands+=(--without-libxml2)
+    if ! enabled libxml2; then
+        extracommands+=(-Dlibxml2=disabled)
     fi
     CFLAGS+=" $(enabled libxml2 && echo "-DLIBXML_STATIC")" \
-        do_separate_confmakeinstall --disable-{examples,doxygen-doc} \
-        --without-{fontconfig,freetype} "${extracommands[@]}"
+        do_mesoninstall -Dfontconfig=disabled -Dfreetype=disabled "${extracommands[@]}"
+    if enabled libxml2; then
+        sed -ri 's;(Cflags.*);\1 -DLIBXML_STATIC;' $LOCALDESTDIR/lib/pkgconfig/libbluray.pc
+    fi
     do_checkIfExist
     PATH=$OLD_PATH
     unset extracommands JDK_HOME JAVA_HOME OLD_PATH
@@ -1799,7 +1797,7 @@ if [[ $x264 != no ]] ||
         unset_extra_script
         if [[ $standalone = y || $av1an = y ]] && [[ $x264 =~ (full|fullv) ]]; then
             _check=("$LOCALDESTDIR"/opt/lightffmpeg/lib/pkgconfig/libav{codec,format}.pc)
-            do_vcs "$ffmpegPath"
+            do_vcs "$ffmpegPath" ffmpeg
             do_uninstall "$LOCALDESTDIR"/opt/lightffmpeg
             [[ -f config.mak ]] && log "distclean" make distclean
             create_build_dir light
@@ -2448,7 +2446,7 @@ if [[ $ffmpeg != no ]]; then
         _deps=(lib{aom,tesseract,vmaf,x265,vpx}.a)
     [[ $ffmpegUpdate = y ]] && enabled zlib &&
         _deps+=("$zlib_dir"/lib/libz.a)
-    if do_vcs "$ffmpegPath"; then
+    if do_vcs "$ffmpegPath" ffmpeg; then
         ff_base_commit=$(git rev-parse HEAD)
         do_changeFFmpegConfig "$license"
         [[ -f ffmpeg_extra.sh ]] && source ffmpeg_extra.sh
@@ -2609,7 +2607,7 @@ if [[ $libheif != n ]] &&
     do_patch https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/libheif/0001-Edit-CMakeLists.patch
 
     extracflags=()
-    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON)
+    extracommands=(-DWITH_HEADER_COMPRESSION=ON -DWITH_UNCOMPRESSED_CODEC=ON -DBUILD_DOCUMENTATION=OFF)
 
     pc_exists "libde265" &&
         extracommands+=(-DWITH_LIBDE265=ON -DWITH_LIBDE265_PLUGIN=OFF) &&
@@ -2942,7 +2940,7 @@ if [[ $cyanrip = y ]]; then
         do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/cyanrip/0001-os_compat-re-add-cast-for-gcc-15-compat.patch" am
         old_PKG_CONFIG_PATH=$PKG_CONFIG_PATH
         _check=("$LOCALDESTDIR"/opt/cyanffmpeg/lib/pkgconfig/libav{codec,format}.pc)
-        if flavor=cyan do_vcs "$ffmpegPath"; then
+        if flavor=cyan do_vcs "$ffmpegPath" ffmpeg; then
             do_uninstall "$LOCALDESTDIR"/opt/cyanffmpeg
             [[ -f config.mak ]] && log "distclean" make distclean
             mapfile -t cyan_ffmpeg_opts < <(
