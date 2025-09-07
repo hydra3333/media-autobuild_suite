@@ -77,7 +77,8 @@
 
 # Full
 --enable-chromaprint
---enable-decklink
+#--enable-decklink
+--disable-decklink
 --enable-frei0r
 --enable-libaribb24
 --enable-libbs2b
@@ -130,3 +131,4 @@
 --enable-libnpp
 #--enable-libopenh264
 --disable-libopenh264
+
