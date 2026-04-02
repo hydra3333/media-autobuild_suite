@@ -192,8 +192,12 @@ else
             sed -i 's; -L${sharedlibdir};;' zlib.pc.cmakein
             # add missing header and source files needed for compilation, force all executables to link with static zlib, and name libraries correctly with -DUNIX=OFF
             sed -e 's;ioapi.h;ioapi.h contrib/minizip/iowin32.c contrib/minizip/iowin32.h;' \
-                -e 's;zlib);zlibstatic);' -e 's;BUILD_SHARED_LIBS AND WIN32;MINGW;' \
-                -e 's;zlib PROPERTIES SUFFIX "1.dll";zlib zlibstatic PROPERTIES OUTPUT_NAME z;' -i CMakeLists.txt
+                -e 's;\(target.*\) zlib);\1 zlibstatic);' -e 's;BUILD_SHARED_LIBS AND WIN32;MINGW;' \
+                -e 's;zlib PROPERTIES SUFFIX "1.dll";zlib zlibstatic PROPERTIES OUTPUT_NAME z;' \
+                -e 's/${zlib_static_suffix}//' \
+                -e 's/zlib.h)/zlib.h chromeconf.h)/' \
+                -i CMakeLists.txt
+            grep_or_sed 'string.h' contrib/bench/zlib_bench.cc 's/#include <stdlib.h>/#include <stdlib.h>\n#include <string.h>/'
             # the win32 dir is missing, so copy the folder from original zlib
             do_wget -c -r -q "https://github.com/madler/zlib/archive/refs/heads/develop.tar.gz"
             tar --strip-components=1 -xzf develop.tar.gz zlib-develop/win32
@@ -2852,6 +2856,7 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         log clean env -i PATH="$PATH" "$(command -v make)" clean
         mujs_targets=(build/release/{mujs.pc,libmujs.a})
         if [[ $standalone != n ]]; then
+            do_pacman_install readline
             mujs_targets+=(build/release/mujs)
             _check+=(bin-global/mujs.exe)
             sed -i "s;-lreadline;$($PKG_CONFIG --libs readline);g" Makefile
@@ -3164,7 +3169,7 @@ EOF
         do_qmake
         do_makeinstall
         _add_static_link Qt5QuickWidgets qml/QtGraphicalEffects qtgraphicaleffectsplugin
-	    _add_static_link Qt5QuickWidgets qml/QtGraphicalEffects/private qtgraphicaleffectsprivate
+        _add_static_link Qt5QuickWidgets qml/QtGraphicalEffects/private qtgraphicaleffectsprivate
         do_checkIfExist
     fi
 
