@@ -1920,7 +1920,7 @@ fix_impsyms() (
     fi
 
     # 2. Resolve provider library paths from pkg-config
-    mapfile -t pkg_libs < <($PKG_CONFIG --libs "$pkg_name" 2> /dev/null | tr ' ' '\n' | grep -- '.')
+    mapfile -t pkg_libs < <($PKG_CONFIG --libs --keep-system-libs "$pkg_name" 2> /dev/null | tr ' ' '\n' | grep -- '.')
 
     search_paths=()
     lib_names=()
@@ -2369,8 +2369,8 @@ grep_and_sed() {
     local sed_files=("$grep_file")
     [[ -n $1 ]] && sed_files=("$@")
 
-    grep -q -- "$grep_re" "$grep_file" &&
-        sed -ri -- "$sed_re" "${sed_files[@]}"
+    grep -Eq -- "$grep_re" "$grep_file" &&
+        sed -Ei -- "$sed_re" "${sed_files[@]}"
 }
 
 fix_cmake_crap_exports() {
