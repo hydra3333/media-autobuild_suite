@@ -97,7 +97,7 @@
 --enable-librist
 --enable-librtmp
 --enable-librubberband
-#--enable-libssh
+#
 --disable-libssh
 #--enable-libtesseract
 --disable-libtesseract
@@ -120,15 +120,15 @@
 --disable-libuavs3d
 --enable-libplacebo
 --enable-libjxl
---enable-libvvenc
---enable-libvvdec
+#--enable-libvvenc
+#--enable-libvvdec
 --enable-liblc3
 
 # Full plus options that add shared dependencies
 --enable-opencl
 --enable-opengl
 --enable-cuda-nvcc
---enable-libnpp
+
 #--enable-libopenh264
 --disable-libopenh264
 
