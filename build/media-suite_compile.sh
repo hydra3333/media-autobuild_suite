@@ -547,8 +547,8 @@ if enabled_any gnutls librtmp || [[ $rtmpdump = y || $curl = gnutls ]]; then
     grep_and_sed '__declspec(__dllimport__)' "$MINGW_PREFIX"/include/gmp.h \
         's|__declspec\(__dllimport__\)||g' "$MINGW_PREFIX"/include/gmp.h
     _check=(libgnutls.{,l}a gnutls.pc)
-    _gnutls_ver=3.8.9
-    _gnutls_hash=69e113d802d1670c4d5ac1b99040b1f2d5c7c05daec5003813c049b5184820ed
+    _gnutls_ver=3.8.13
+    _gnutls_hash=ffed8ec1bf09c2426d4f14aae377de4753b53e537d685e604e99a8b16ca9c97e
     if do_pkgConfig "gnutls = $_gnutls_ver" && do_wget -h $_gnutls_hash \
         "https://www.gnupg.org/ftp/gcrypt/gnutls/v${_gnutls_ver%.*}/gnutls-${_gnutls_ver}.tar.xz"; then
         do_uninstall include/gnutls "${_check[@]}"
@@ -1283,6 +1283,30 @@ if [[ $ffmpeg != no ]] && enabled liblc3 &&
     do_checkIfExist
 fi
 
+_check=(libmpeghdec.a mpeghdec.pc mpeghdec/{mpeghexport,mpeghdecoder}.h)
+[[ $standalone = y ]] && _check+=(mpeghdec/mpeghUIManager.h
+    bin-audio/{mpeghDecoder,mpeghUiManager}.exe)
+if [[ $ffmpeg != no ]] && enabled libmpeghdec &&
+    do_vcs "$SOURCE_REPO_MPEGHDEC"; then
+    do_uninstall include/mpeghdec "${_check[@]}"
+    if [[ $standalone = y ]]; then
+        extracommands=(-Dmpeghdec_BUILD_BINARIES=ON -Dmpeghdec_BUILD_UIMANAGER=ON)
+    else
+        extracommands=(-Dmpeghdec_BUILD_BINARIES=OFF -Dmpeghdec_BUILD_UIMANAGER=OFF)
+    fi
+    do_cmakeinstall "${extracommands[@]}" -DCMAKE_INSTALL_DATAROOTDIR=lib
+    # Avoid bundled FDK symbol collisions with libfdk-aac.
+    if enabled libfdk-aac; then
+        prefix_archive_symbols "$LOCALDESTDIR/lib/libmpeghdec.a" \
+            mpeghdec_private_ '^_?(mpeghdecoder_|mpegh_UI_)'
+    fi
+    [[ $standalone = y ]] &&
+        do_install bin/{mpeghDecoder,mpeghUiManager}.exe bin-audio/
+    sed -i 's/^Cflags:.*/& -DMPEGHDEC_STATIC/' "$LOCALDESTDIR/lib/pkgconfig/mpeghdec.pc"
+    do_checkIfExist
+    unset extracommands
+fi
+
 _check=(bin/atw_ldwrapper libAudioToolboxWrapper.a)
 if [[ $ffmpeg != no ]] && enabled audiotoolbox; then
     _qtfiles_url="https://github.com/AnimMouse/QTFiles/releases/download/v12.10.11"
@@ -1643,7 +1667,7 @@ _check=(libxavs2.a xavs2_config.h xavs2.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/xavs2.exe)
 if [[ $bits = 32bit ]]; then
     do_removeOption --enable-libxavs2
-elif { [[ $avs2 = y ]] || { [[ $ffmpeg != no ]] && enabled libxavs2; }; } &&
+elif { [[ $avs2 != n ]] || { [[ $ffmpeg != no ]] && enabled libxavs2; }; } &&
     do_vcs "$SOURCE_REPO_XAVS2"; then
     do_patch "https://github.com/pkuvcl/xavs2/compare/master...1480c1:xavs2:gcc14/pointerconversion.patch" am
     cd_safe build/linux
@@ -1656,17 +1680,24 @@ fi
 
 _check=(libdavs2.a davs2_config.h davs2.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/davs2.exe)
+davs2_repo=$SOURCE_REPO_DAVS
+extracommands=()
+if [[ $avs2 = 10bit ]]; then
+    davs2_repo=$SOURCE_REPO_DAVS10bit
+    extracommands+=(--bit-depth=10)
+fi
 if [[ $bits = 32bit ]]; then
     do_removeOption --enable-libdavs2
-elif { [[ $avs2 = y ]] || { [[ $ffmpeg != no ]] && enabled libdavs2; }; } &&
-    do_vcs "$SOURCE_REPO_DAVS"; then
+elif { [[ $avs2 != n ]] || { [[ $ffmpeg != no ]] && enabled libdavs2; }; } &&
+    do_vcs "$davs2_repo"; then
     cd_safe build/linux
     [[ -f config.mak ]] && log "distclean" make distclean
     do_uninstall all "${_check[@]}"
-    do_configure --bindir="$LOCALDESTDIR"/bin-video --enable-strip
+    do_configure --bindir="$LOCALDESTDIR"/bin-video --enable-strip "${extracommands[@]}"
     do_makeinstall
     do_checkIfExist
 fi
+unset davs2_repo extracommands
 
 _check=(libuavs3d.a uavs3d.{h,pc})
 [[ $standalone = y ]] && _check+=(bin-video/uavs3dec.exe)
@@ -2393,7 +2424,7 @@ fi
 _check=(lib{glslang,OSDependent}.a
         libSPIRV{,-Tools{,-opt,-link,-reduce}}.a glslang/SPIRV/GlslangToSpv.h)
 if { [[ $mpv != n ]] ||
-     { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang libshaderc vulkan; } } &&
+     { [[ $ffmpeg != no ]] && enabled_any libplacebo libglslang libshaderc; } } &&
     do_vcs "$SOURCE_REPO_GLSLANG"; then
     do_uninstall libHLSL.a "${_check[@]}"
     sed -i "s|command_output(\['git', 'clone',|command_output(\['git', 'clone', '--filter=tree:0',|" ./update_glslang_sources.py
@@ -2452,7 +2483,7 @@ if enabled libcdio || mpv_enabled cdda; then
 fi
 
 if [[ $ffmpeg != no ]]; then
-    do_pacman_install texinfo
+    do_pacman_install -m texinfo
     enabled libgsm && do_pacman_install gsm
     enabled libsnappy && do_pacman_install snappy
     if enabled libxvid && [[ $standalone = n ]]; then
@@ -2462,9 +2493,9 @@ if [[ $ffmpeg != no ]]; then
     fi
     if enabled libssh; then
         do_pacman_install libssh
-        do_addOption --extra-cflags=-DLIBSSH_STATIC "--extra-ldflags=-Wl,--allow-multiple-definition"
-        grep_or_sed "Requires.private" "$MINGW_PREFIX"/lib/pkgconfig/libssh.pc \
-            "/Libs:/ i\Requires.private: zlib libssl"
+        do_addOption --extra-cflags=-DLIBSSH_STATIC
+        grep_or_sed "Requires.private:.*libssl" "$MINGW_PREFIX"/lib/pkgconfig/libssh.pc \
+            $'/^Libs:/ i\\\nRequires.private: libssl libcrypto zlib\\\nLibs.private: -liphlpapi -lws2_32 -lpthread'
     fi
     enabled libtheora && do_pacman_install libtheora
     enabled libcaca && do_addOption --extra-cflags=-DCACA_STATIC && do_pacman_install libcaca
@@ -2554,24 +2585,22 @@ if [[ $ffmpeg != no ]]; then
         ff_base_commit=$(git rev-parse HEAD)
         do_changeFFmpegConfig "$license"
         [[ -f ffmpeg_extra.sh ]] && source ffmpeg_extra.sh
-        if enabled libvvdec; then
-            do_patch "https://raw.githubusercontent.com/wiki/fraunhoferhhi/vvdec/data/patch/v6-0001-avcodec-add-external-dec-libvvdec-for-H266-VVC.patch" am  ||
-                do_removeOptions --enable-libvvdec
-        fi
         if enabled libsvthevc; then
             do_patch "https://raw.githubusercontent.com/1480c1/SVT-HEVC/master/ffmpeg_plugin/master-0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch" am ||
                 do_removeOption --enable-libsvthevc
         fi
         if enabled libsvtvp9; then
-            do_patch "https://raw.githubusercontent.com/OpenVisualCloud/SVT-VP9/master/ffmpeg_plugin/master-0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch" am ||
+            do_patch "https://raw.githubusercontent.com/1480c1/SVT-VP9/master/ffmpeg_plugin/master-0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch" am ||
                 do_removeOption --enable-libsvtvp9
+        fi
+        if enabled libvvdec; then
+            do_patch "https://raw.githubusercontent.com/wiki/fraunhoferhhi/vvdec/data/patch/v9-libvvdec.patch"  ||
+                do_removeOptions --enable-libvvdec
         fi
 
         enabled libsvthevc || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
         enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
         enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
-
-        enabled libvvdec && grep_and_sed FF_PROFILE libavcodec/libvvdec.c 's/FF_PROFILE/AV_PROFILE/g'
 
         # Remove explicit include of DeckLinkAPI_v14_2_1.h since it's merged into the main file for Windows
         enabled decklink && sed -ri 's|#include <DeckLinkAPI_v14_2_1.h>||g' libavdevice/decklink_{dec,enc,common}.cpp
@@ -2599,7 +2628,6 @@ if [[ $ffmpeg != no ]]; then
                 's|__declspec\(__dllimport__\)||g' "$MINGW_PREFIX"/include/gmp.h
         fi
 
-        enabled vulkan && ! enabled_any libshaderc libglslang && do_addOption --enable-libglslang
         enabled_all libshaderc libglslang && do_removeOption --enable-libglslang
         enabled libshaderc && sed -ri 's/(require_pkg_config spirv_library "shaderc) >/\1_combined >/' configure
 

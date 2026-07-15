@@ -51,7 +51,7 @@ For information about the compiler environment see the wiki, there you also have
                 - needs non-GPL license
             - mbedtls (mingw-w64)
                 - preferred to gnutls if GPLv3 license is chosen
-            - gnutls (3.8.9)
+            - gnutls (3.8.13)
         - libass (git)
             - by default with DirectWrite backend
             - if --enable-fontconfig, fontconfig backend included
@@ -108,7 +108,7 @@ For information about the compiler environment see the wiki, there you also have
         - librist (git)
         - librtmp (git)
         - librubberband (git)
-        - libssh (broken)
+        - libssh (mingw-w64)
         - libsvthevc (git) (using non-upstream patch)
         - libsvtvp9 (git) (using non-upstream patch)
         - libtesseract (git)
