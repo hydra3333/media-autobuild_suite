@@ -418,6 +418,14 @@ fi
 # Probably caused by https://gitlab.gnome.org/GNOME/libxml2/-/commit/93e8bb2a402012858500b608b4146cd5c756e34d
 grep_or_sed Requires.private "$LOCALDESTDIR/lib/pkgconfig/libxml-2.0.pc" 's/Requires:/Requires.private:/'
 
+_check=(aribcaption/aribcaption.h libaribcaption.{a,pc})
+if [[ $ffmpeg != no ]] && enabled libaribcaption &&
+    do_vcs "$SOURCE_REPO_ARIBCAPTION"; then
+    do_uninstall include/aribcaption lib/cmake/aribcaption "${_check[@]}"
+    do_cmakeinstall -DARIBCC_SHARED_LIBRARY=OFF -DARIBCC_BUILD_TESTS=OFF
+    do_checkIfExist
+fi
+
 if [[ $ffmpeg != no ]] && enabled libaribb24; then
     _deps=("$zlib_dir"/lib/libz.a)
     _check=(libpng.{pc,{,l}a} libpng16.{pc,{,l}a} libpng16/png.h)
@@ -1311,12 +1319,9 @@ if [[ $ffmpeg != no ]] && enabled libmpeghdec &&
     else
         extracommands=(-Dmpeghdec_BUILD_BINARIES=OFF -Dmpeghdec_BUILD_UIMANAGER=OFF)
     fi
-    do_cmakeinstall "${extracommands[@]}" -DCMAKE_INSTALL_DATAROOTDIR=lib
     # Avoid bundled FDK symbol collisions with libfdk-aac.
-    if enabled libfdk-aac; then
-        prefix_archive_symbols "$LOCALDESTDIR/lib/libmpeghdec.a" \
-            mpeghdec_private_ '^_?(mpeghdecoder_|mpegh_UI_)'
-    fi
+    do_cmakeinstall "${extracommands[@]}" -Dmpeghdec_SYMBOL_PREFIX=ON \
+        -DCMAKE_INSTALL_DATAROOTDIR=lib
     [[ $standalone = y ]] &&
         do_install bin/{mpeghDecoder,mpeghUiManager}.exe bin-audio/
     sed -i 's/^Cflags:.*/& -DMPEGHDEC_STATIC/' "$LOCALDESTDIR/lib/pkgconfig/mpeghdec.pc"
@@ -1813,18 +1818,11 @@ if [[ $ffmpeg != no ]] && enabled libzvbi &&
 fi
 
 if [[ $ffmpeg != no ]] && enabled_any frei0r ladspa; then
-    _check=(libdl.a dlfcn.h)
-    if do_vcs "$SOURCE_REPO_DLFCN"; then
-        do_uninstall "${_check[@]}"
-        do_cmakeinstall
-        do_checkIfExist
-    fi
-
     _check=(frei0r.{h,pc})
     if do_vcs "$SOURCE_REPO_FREI0R"; then
         do_uninstall lib/frei0r-1 "${_check[@]}"
         do_pacman_install gavl
-        do_cmakeinstall -DWITHOUT_OPENCV=on -DWITHOUT_CAIRO=on
+        do_cmakeinstall -DBUILD_TESTING=OFF -DWITHOUT_OPENCV=on -DWITHOUT_CAIRO=on
         do_checkIfExist
     fi
 fi
