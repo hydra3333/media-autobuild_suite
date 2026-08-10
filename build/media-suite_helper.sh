@@ -121,15 +121,6 @@ test_newer() {
     return 1
 }
 
-# vcs_get_current_type /build/myrepo
-vcs_get_current_type() {
-    git -C "${1:-$PWD}" rev-parse --is-inside-work-tree > /dev/null 2>&1 &&
-        echo "git" &&
-        return 0
-    echo "unknown"
-    return 1
-}
-
 # check_valid_vcs /build/ffmpeg-git
 check_valid_vcs() {
     [[ -d ${1:-$PWD}/.git ]] &&
@@ -332,64 +323,6 @@ do_vcs() {
         do_print_status prefix "$bold├$reset " "Found recompile flag" "$orange" "Recompiling"
     fi
     extra_script post vcs
-    return 0
-}
-
-# get source from VCS to a local subfolder
-# example:
-#   do_vcs_local "url#branch|revision|tag|commit=NAME" "subfolder"
-do_vcs_local() {
-    local vcsURL=${1#*::} vcsFolder=$2 vcsCheck=("${_check[@]}")
-    local vcsBranch=${vcsURL#*#} ref=origin/HEAD
-    local deps=("${_deps[@]}") && unset _deps
-    [[ $vcsBranch == "$vcsURL" ]] && unset vcsBranch
-    vcsURL=${vcsURL%#*}
-    : "${vcsFolder:=$(basename "$vcsURL" .git)}"
-
-    if [[ -n $vcsBranch ]]; then
-        ref=${vcsBranch##*=}
-        [[ ${vcsBranch%%=*}/$ref == branch/${ref%/*} ]] && ref=origin/$ref
-    fi
-
-    rm -f "$vcsFolder/custom_updated"
-
-    # try to see if we can "resolve" the currently provided ref, minus the origin/ part,
-    # if so, set ref to the ref on the origin, this might make it harder for people who
-    # want use multiple remotes other than origin. Converts ref=develop to ref=origin/develop
-    # ignore those that use the special tags/branches
-    case $ref in
-    LATEST | GREATEST | *\**) ;;
-    *) git ls-remote --exit-code "$vcsURL" "${ref#origin/}" > /dev/null 2>&1 && ref=origin/${ref#origin/} ;;
-    esac
-
-    if ! check_valid_vcs "$vcsFolder"; then
-        rm -rf "$vcsFolder"
-        rm -rf "$vcsFolder-git"
-        do_print_progress "  Running git clone for $vcsFolder"
-        if ! do_mabs_clone "$vcsURL" "$vcsFolder" "$ref"; then
-            echo "$vcsFolder git seems to be down"
-            echo "Try again later or <Enter> to continue"
-            do_prompt "if you're sure nothing depends on it."
-            # unset_extra_script
-            return 1
-        fi
-        mv "$vcsFolder-git" "$vcsFolder"
-        touch "$vcsFolder"/recently_{updated,checked}
-    fi
-
-    cd_safe "$vcsFolder"
-
-    vcs_set_url "$vcsURL"
-    log -q git.fetch vcs_fetch
-    oldHead=$(vcs_get_merge_base "$ref")
-    do_print_progress "  Running git update for $vcsFolder"
-    log -q git.reset vcs_reset "$ref"
-    newHead=$(vcs_get_current_head "$PWD")
-
-    vcs_clean
-
-    cd ..
-
     return 0
 }
 
@@ -1277,6 +1210,10 @@ do_patch() {
 
     if [[ -f $patchName ]]; then
         if $am; then
+            if ! git apply -3 --check --ignore-space-change --ignore-whitespace "$patchName" > /dev/null 2>&1 &&
+                git config --get remote.origin.partialclonefilter > /dev/null 2>&1; then
+                git fetch -q --refetch --no-filter
+            fi
             git apply -3 --check --ignore-space-change --ignore-whitespace "$patchName" > /dev/null 2>&1 &&
                 git am -q -3 --ignore-whitespace --no-gpg-sign "$patchName" > /dev/null 2>&1 &&
                 return 0
@@ -1293,14 +1230,6 @@ do_patch() {
             '\tPatch not found anywhere. Continuing without patching.'
     fi
     return 1
-}
-
-do_custom_patches() {
-    local patch
-    for patch in "$@"; do
-        [[ ${patch##*.} == "patch" ]] && do_patch "$patch" am
-        [[ ${patch##*.} == "diff" ]] && do_patch "$patch"
-    done
 }
 
 do_cmake() {
@@ -1826,6 +1755,10 @@ do_pacman_remove() (
 )
 
 do_prompt() {
+    if [[ -n ${CI:-} ]]; then
+        ret=
+        return 0
+    fi
     # from http://superuser.com/a/608509
     while read -r -s -e -t 0.1; do :; done
     read -r -p "$1" ret
@@ -1978,38 +1911,6 @@ fix_impsyms() (
         rm -f "$obj"
     done
 )
-
-get_vs_prefix() {
-    unset vsprefix
-    local winvsprefix
-    local regkey="/HKLM/software/vapoursynth/path"
-    local embedded
-    embedded="$(find "$LOCALDESTDIR"/bin-video -iname vspipe.exe)"
-    if [[ -n $embedded ]]; then
-        # look for .dlls in bin-video
-        vsprefix="${embedded%/*}"
-    elif [[ $bits == 64bit ]] && winvsprefix="$(regtool -q get "$regkey")"; then
-        # check in native HKLM for installed VS (R31+)
-        [[ -n $winvsprefix && -f "$winvsprefix/core64/vspipe.exe" ]] &&
-            vsprefix="$(cygpath -u "$winvsprefix")/core64"
-    elif winvsprefix="$(regtool -qW get "$regkey")"; then
-        # check in 32-bit registry for installed VS
-        [[ -n $winvsprefix && -f "$winvsprefix/core${bits%bit}/vspipe.exe" ]] &&
-            vsprefix="$(cygpath -u "$winvsprefix/core${bits%bit}")"
-    elif [[ -n $(command -v vspipe.exe 2> /dev/null) ]]; then
-        # last resort, check if vspipe is in path
-        vsprefix="$(dirname "$(command -v vspipe.exe)")"
-    fi
-    if [[ -n $vsprefix && -f "$vsprefix/vapoursynth.dll" && -f "$vsprefix/vsscript.dll" ]]; then
-        local bitness
-        bitness="$(file "$vsprefix/vapoursynth.dll")"
-        { [[ $bits == 64bit && $bitness == *x86-64* ]] ||
-            [[ $bits == 32bit && $bitness == *80386* ]]; } &&
-            return 0
-    else
-        return 1
-    fi
-}
 
 get_cl_path() {
     { type cl.exe && cl --help; } > /dev/null 2>&1 && return 0
@@ -2724,17 +2625,4 @@ _post_install() {
 EOF
     printf '%s' "$script_file" > "${LOCALBUILDDIR}/${extraName}_extra.sh"
     echo "Created skeleton file ${LOCALBUILDDIR}/${extraName}_extra.sh"
-}
-
-# if you absolutely need to remove some of these,
-# add a "-e '!<hardcoded rule>'"  option
-# ex: "-e '!/recently_updated'"
-safe_git_clean() {
-    git clean -xfd \
-        -e "/build_successful*" \
-        -e "/recently_updated" \
-        -e '/custom_updated' \
-        -e '/do_not_build' \
-        -e '**/ab-suite.*.log' \
-        "${@}"
 }
