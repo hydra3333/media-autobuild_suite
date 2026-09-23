@@ -2,6 +2,7 @@
 
 # Dependency References
 SOURCE_REPO_AMF=https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git
+SOURCE_REPO_ASTCENC=https://github.com/ARM-software/astc-encoder.git
 SOURCE_REPO_ANGLE=https://chromium.googlesource.com/angle/angle
 SOURCE_REPO_ARIBB24=https://github.com/nkoriyama/aribb24.git
 SOURCE_REPO_ARIBCAPTION=https://github.com/xqq/libaribcaption.git
@@ -59,7 +60,6 @@ SOURCE_REPO_LIBKVAZAAR=https://github.com/ultravideo/kvazaar.git
 SOURCE_REPO_LIBLC3=https://github.com/google/liblc3.git
 SOURCE_REPO_LIBLSMASH=https://github.com/l-smash/l-smash.git
 SOURCE_REPO_LIBMEDIAINFO=https://github.com/MediaArea/MediaInfoLib.git
-SOURCE_REPO_LIBMFX=https://github.com/lu-zero/mfx_dispatch.git
 SOURCE_REPO_LIBMUSICBRAINZ=https://github.com/metabrainz/libmusicbrainz.git
 SOURCE_REPO_LIBMYSOFA=https://github.com/hoene/libmysofa.git
 SOURCE_REPO_LIBOGG=https://github.com/xiph/ogg.git

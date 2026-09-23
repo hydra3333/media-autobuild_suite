@@ -411,6 +411,23 @@ if { enabled_any libxml2 libbluray || [[ $cyanrip = y ]] || ! mpv_disabled libbl
     unset extracommands
 fi
 
+_check=(libastcenc.a astc/astcenc/astcenc.h)
+if [[ $bits = 32bit ]]; then
+    do_removeOption --enable-libastcenc
+elif [[ $ffmpeg != no ]] && enabled libastcenc; then
+    do_addOption --extra-cflags="-I$LOCALDESTDIR/include/astc"
+    if do_vcs "$SOURCE_REPO_ASTCENC" astc-encoder; then
+        do_uninstall include/astc libastcenc.a
+        # astc-encoder has no install target when only the static core is enabled.
+        do_install "Source/astcenc.h" include/astc/astcenc/
+        do_cmake builddir=astcenc -DASTCENC_CLI=OFF -DASTCENC_SHAREDLIB=OFF \
+            -DASTCENC_ISA_SSE2=ON -DASTCENC_WERROR=OFF
+        do_ninja
+        do_install "Source/libastcenc-sse2-static.a" libastcenc.a
+        do_checkIfExist
+    fi
+fi
+
 # Fixes an issue with ordering with libbluray libxml2 and libz and liblzma
 # Probably caused by https://gitlab.gnome.org/GNOME/libxml2/-/commit/93e8bb2a402012858500b608b4146cd5c756e34d
 grep_or_sed Requires.private "$LOCALDESTDIR/lib/pkgconfig/libxml-2.0.pc" 's/Requires:/Requires.private:/'
@@ -1579,6 +1596,7 @@ if { [[ $other265 = y ]] || { [[ $ffmpeg != no ]] && enabled libkvazaar; }; } &&
         sed -i "s|bin_PROGRAMS = .*||" src/Makefile.in
     CFLAGS+=" -fno-asynchronous-unwind-tables -DKVZ_BIT_DEPTH=10" \
         do_separate_confmakeinstall video
+    [[ $ffmpeg != no ]] && do_addOption --extra-cflags=-DKVZ_STATIC_LIB
     do_checkIfExist
 fi
 
@@ -1854,9 +1872,6 @@ fi
 
 _check=(libvpl.a vpl.pc)
 if [[ $ffmpeg != no ]] && enabled libvpl; then
-    if enabled libmfx; then
-        do_removeOption --enable-libmfx
-    fi
     if do_vcs "$SOURCE_REPO_LIBVPL" libvpl; then
         do_patch https://github.com/intel/libvpl/pull/198.patch am
         if [[ $bits = 32bit ]]; then
@@ -1866,15 +1881,6 @@ if [[ $ffmpeg != no ]] && enabled libvpl; then
         do_cmakeinstall -DUNIX=OFF
         do_checkIfExist
     fi
-fi
-
-_check=(libmfx.{{,l}a,pc})
-if [[ $ffmpeg != no ]] && enabled libmfx &&
-    do_vcs "$SOURCE_REPO_LIBMFX" libmfx; then
-    do_autoreconf
-    do_uninstall include/mfx "${_check[@]}"
-    do_separate_confmakeinstall
-    do_checkIfExist
 fi
 
 _check=(AMF/core/Version.h)
@@ -2198,7 +2204,7 @@ _vapoursynth_install() {
         do_simple_print "${orange}Vapoursynth is known to be broken on 32-bit and will be disabled"'!'"${reset}"
         return 1
     fi
-    _vsver=79
+    _vsver=80
     _vspyver=312
 
     _check=(vapoursynth.pc vapoursynth/{VS{Constants4,Helper4,Script4},VapourSynth4}.h)
@@ -2210,7 +2216,7 @@ _vapoursynth_install() {
         # FFmpeg and mpv load VSScript at runtime and only need build metadata here.
         log "7z" 7z e -y -aoa wheel/vapoursynth-$_vsver-cp$_vspyver-abi3-win_amd64.whl \
             'vapoursynth/include/*.h' vapoursynth/pkgconfig/vapoursynth.pc
-        do_install VSConstants4.h VSHelper4.h VSScript4.h VapourSynth4.h include/vapoursynth/
+        do_install VSConstants4.h VSHelper4.h VSScript4.h VSVulkan4.h VapourSynth4.h include/vapoursynth/
         sed -i \
             -e 's|^prefix=.*|prefix=${pcfiledir}/../..|' \
             -e 's|^includedir=.*|includedir=${prefix}/include/vapoursynth|' \
@@ -2863,10 +2869,6 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         mpv_cflags=() mpv_ldflags=()
         if ! mpv_disabled manpage-build || mpv_enabled html-build; then
             do_pacman_install python-docutils
-        fi
-        if enabled libnpp && [[ -n "$CUDA_PATH" ]]; then
-            mpv_cflags+=("-I$(cygpath -sm "$CUDA_PATH")/include")
-            mpv_ldflags+=("-L$(cygpath -sm "$CUDA_PATH")/lib/x64")
         fi
         mpv_enabled pdf-build && do_pacman_install python-rst2pdf
 
