@@ -1,5 +1,5 @@
 #!/bin/bash
-# shellcheck disable=SC2034,SC1090,SC1117,SC1091,SC2119
+# shellcheck disable=SC1090,SC1091,SC2119,SC2191,SC2086,SC2016
 shopt -s extglob
 
 if [[ -z $LOCALBUILDDIR ]]; then
@@ -116,7 +116,8 @@ do_simple_print -p '\n\t'"${orange}Starting $bits compilation of all tools$reset
 cd_safe "$LOCALBUILDDIR"
 
 do_getFFmpegConfig "$license"
-declare -A MPV_OPTS="($(do_getMpvConfig))"
+declare -A MPV_OPTS
+eval "MPV_OPTS=($(do_getMpvConfig))"
 
 do_fix_pkgconfig_abspaths
 do_clean_old_builds
@@ -185,7 +186,7 @@ else
             extracommands=()
             [[ $standalone = y ]] && extracommands=(-DBUILD_MINIZIP_BIN=YES -DBUILD_MINIGZIP=YES)
             # these macros are for some reason not set, even though they should be according to CMakeLists.txt
-            local zlib_macros="-DINFLATE_CHUNK_SIMD_SSE2 -DADLER32_SIMD_SSSE3 -DINFLATE_CHUNK_READ_64LE -DCRC32_SIMD_SSE42_PCLMUL -DDEFLATE_SLIDE_HASH_SSE2 -D_LARGEFILE64_SOURCE=1 -DX86_WINDOWS"
+            zlib_macros="-DINFLATE_CHUNK_SIMD_SSE2 -DADLER32_SIMD_SSSE3 -DINFLATE_CHUNK_READ_64LE -DCRC32_SIMD_SSE42_PCLMUL -DDEFLATE_SLIDE_HASH_SSE2 -D_LARGEFILE64_SOURCE=1 -DX86_WINDOWS"
             sed -i 's; -L${sharedlibdir};;' zlib.pc.cmakein
             # add missing header and source files needed for compilation, force all executables to link with static zlib, and name libraries correctly with -DUNIX=OFF
             sed -e 's;ioapi.h;ioapi.h contrib/minizip/iowin32.c contrib/minizip/iowin32.h;' \
@@ -714,7 +715,7 @@ if { [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; } } ||
         extracommands=(-Dtiff=disabled)
         pc_exists libtiff-4 && extracommands=(-Dtiff=enabled)
         [[ $standalone = y ]] && extracommands+=(-Dutils=true)
-        LDFLAGS+=" $([[ ${extracommands[@]} = *Dtiff=enabled* ]] && echo "$($PKG_CONFIG --libs libtiff-4)")" \
+        LDFLAGS+=" $([[ ${extracommands[*]} = *Dtiff=enabled* ]] && $PKG_CONFIG --libs libtiff-4)" \
             do_mesoninstall global -Djpeg=enabled -Dfastfloat=true "${extracommands[@]}"
         do_checkIfExist
     fi
@@ -736,12 +737,12 @@ if [[ $jpegxl = y ]] || { [[ $ffmpeg != no ]] && enabled libjxl; }; then
     [[ $jpegxl = y ]] && _check+=(bin-global/{{c,d}jxl,jxlinfo}.exe)
     if do_vcs "$SOURCE_REPO_LIBJXL"; then
         do_git_submodule
-        do_uninstall "${_check[@]}" include/jxl bin-global/cjpegli.exe bin-global/djpegli.exe 
+        do_uninstall "${_check[@]}" include/jxl bin-global/cjpegli.exe bin-global/djpegli.exe
         extracommands=()
         [[ $jpegxl = y ]] || extracommands=("-DJPEGXL_ENABLE_TOOLS=OFF")
         CXXFLAGS+=" -DJXL_CMS_STATIC_DEFINE -DJXL_STATIC_DEFINE -DJXL_THREADS_STATIC_DEFINE $($PKG_CONFIG --cflags zlib)" \
             LDFLAGS+=" $($PKG_CONFIG --libs zlib)" \
-            do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES,JPEGLI}}=OFF \
+            do_cmakeinstall global -D{BUILD_TESTING,JPEGXL_ENABLE_{BENCHMARK,DOXYGEN,MANPAGES,OPENEXR,SKCMS,EXAMPLES}}=OFF \
             -DJPEGXL_{FORCE_SYSTEM_{BROTLI,LCMS2},STATIC}=ON "${extracommands[@]}"
         do_checkIfExist
         unset extracommands
@@ -776,7 +777,6 @@ fi
 if [[ $ffmpeg != no && -f $opencldll ]] && enabled opencl; then
     do_simple_print "${orange}FFmpeg and related apps will depend on OpenCL.dll$reset"
     do_pacman_remove opencl-headers
-    do_pacman_install tools
     _check=(CL/cl.h)
     if do_vcs "$SOURCE_REPO_OPENCLHEADERS"; then
         do_uninstall include/CL
@@ -1264,7 +1264,9 @@ if { { [[ $ffmpeg != no ]] &&
     do_patch "https://raw.githubusercontent.com/m-ab-s/mabs-patches/master/openal-soft/0003-CMake-include-gsl-include-for-main-lib-too.patch" am
     CC=${CC/ccache /}.bat CXX=${CXX/ccache /}.bat \
         do_cmakeinstall -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF -DALSOFT_ENABLE_MODULES=OFF
-    sed -i 's/Libs.private.*/& -luuid -lole32/' "$LOCALDESTDIR/lib/pkgconfig/openal.pc" # uuid is for FOLDERID_* stuff
+    sed -i -e 's/Libs.private.*/& -luuid -lole32/' \
+        -e '/^Cflags:/a Cflags.private: -DAL_LIBTYPE_STATIC' \
+        "$LOCALDESTDIR/lib/pkgconfig/openal.pc" # uuid is for FOLDERID_* stuff
     do_checkIfExist
 fi
 
@@ -1286,6 +1288,7 @@ _check=(libmpeghdec.a mpeghdec.pc mpeghdec/{mpeghexport,mpeghdecoder}.h)
     bin-audio/{mpeghDecoder,mpeghUiManager}.exe)
 if [[ $ffmpeg != no ]] && enabled libmpeghdec &&
     do_vcs "$SOURCE_REPO_MPEGHDEC"; then
+    do_patch "https://github.com/Fraunhofer-IIS/mpeghdec/compare/main...1480c1:mpeghdec:mabs.patch" am
     do_uninstall include/mpeghdec "${_check[@]}"
     if [[ $standalone = y ]]; then
         extracommands=(-Dmpeghdec_BUILD_BINARIES=ON -Dmpeghdec_BUILD_UIMANAGER=ON)
@@ -1309,7 +1312,7 @@ if [[ $ffmpeg != no ]] && enabled audiotoolbox; then
     if ! files_exist "${_deps[@]}"; then
         do_wget -r -q -h 32fcd058936410f7eabd3b55a8931bce5f45bb7892d6a2c65387820daca52f58 \
             "${_qtfiles_url}/QTfiles64.7z"
-        do_install *.dll bin-video
+        do_install ./*.dll bin-video
         rm -rf ../QTfiles64/
     fi
 
@@ -1521,7 +1524,8 @@ if { [[ $other265 = y ]] || { [[ $ffmpeg != no ]] && enabled libkvazaar; }; } &&
         sed -i "s|bin_PROGRAMS = .*||" src/Makefile.in
     CFLAGS+=" -fno-asynchronous-unwind-tables -DKVZ_BIT_DEPTH=10" \
         do_separate_confmakeinstall video
-    [[ $ffmpeg != no ]] && do_addOption --extra-cflags=-DKVZ_STATIC_LIB
+    grep_or_sed 'KVZ_STATIC_LIB' "$LOCALDESTDIR/lib/pkgconfig/kvazaar.pc" \
+    '/^Cflags:/a Cflags.private: -DKVZ_STATIC_LIB'
     do_checkIfExist
 fi
 
@@ -1993,13 +1997,13 @@ if [[ ! $x265 = n ]] && do_vcs "$SOURCE_REPO_X265"; then
     if [[ $x265 =~ (o12|s|y) ]]; then
         cd_safe "$build_root/12bit"
         if [[ $x265 = s ]]; then
-            do_x265_cmake "shared 12-bit lib" $assembly -DENABLE_SHARED=ON -DMAIN12=ON
+            do_x265_cmake "shared 12-bit lib" -DENABLE_SHARED=ON -DMAIN12=ON
             do_install libx265.dll bin-video/libx265_main12.dll
             _check+=(bin-video/libx265_main12.dll)
         elif [[ $x265 = o12 ]]; then
-            do_x265_cmake "12-bit lib/bin" $assembly $cli -DMAIN12=ON
+            do_x265_cmake "12-bit lib/bin" $cli -DMAIN12=ON
         else
-            do_x265_cmake "12-bit lib for multilib" $assembly -DEXPORT_C_API=OFF -DMAIN12=ON
+            do_x265_cmake "12-bit lib for multilib" -DEXPORT_C_API=OFF -DMAIN12=ON
             cp libx265.a ../8bit/libx265_main12.a
         fi
     fi
@@ -2007,13 +2011,13 @@ if [[ ! $x265 = n ]] && do_vcs "$SOURCE_REPO_X265"; then
     if [[ $x265 =~ (o10|s|y) ]]; then
         cd_safe "$build_root/10bit"
         if [[ $x265 = s ]]; then
-            do_x265_cmake "shared 10-bit lib" $assembly -DENABLE_SHARED=ON
+            do_x265_cmake "shared 10-bit lib" -DENABLE_SHARED=ON
             do_install libx265.dll bin-video/libx265_main10.dll
             _check+=(bin-video/libx265_main10.dll)
         elif [[ $x265 = o10 ]]; then
-            do_x265_cmake "10-bit lib/bin" $assembly $cli
+            do_x265_cmake "10-bit lib/bin" $cli
         else
-            do_x265_cmake "10-bit lib for multilib" $assembly -DEXPORT_C_API=OFF
+            do_x265_cmake "10-bit lib for multilib" -DEXPORT_C_API=OFF
             cp libx265.a ../8bit/libx265_main10.a
         fi
     fi
@@ -2226,13 +2230,11 @@ if [[ $ffmpeg != no ]] && enabled libxevd &&
     do_checkIfExist
 fi
 
-_check=(bin-video/oapv_app_{enc,dec}.exe oapv/oapv.h oapv/liboapv.a oapv.pc)
+_check=(bin-video/oapv_app_{enc,dec}.exe oapv/oapv.h liboapv.a oapv.pc)
 if [[ $ffmpeg != no ]] && enabled liboapv &&
     do_vcs "$SOURCE_REPO_OPENAPV"; then
     do_uninstall "${_check[@]}"
     do_cmakeinstall video -DOAPV_BUILD_SHARED_LIB=OFF
-    # patch the lib path to actual subdirectory it installed to
-    sed -i 's|Libs: -L${libdir} -loapv|Libs: -L${libdir}/oapv -loapv|' "$LOCALDESTDIR"/lib/pkgconfig/oapv.pc
     do_checkIfExist
 fi
 
@@ -2374,14 +2376,13 @@ if [[ $ffmpeg != no ]]; then
     fi
     if enabled libssh; then
         do_pacman_install libssh
-        do_addOption --extra-cflags=-DLIBSSH_STATIC
-        grep_or_sed "Requires.private:.*libssl" "$MINGW_PREFIX"/lib/pkgconfig/libssh.pc \
-            $'/^Libs:/ i\\\nRequires.private: libssl libcrypto zlib\\\nLibs.private: -liphlpapi -lws2_32 -lpthread'
+        grep_or_sed 'LIBSSH_STATIC' "$MINGW_PREFIX/lib/pkgconfig/libssh.pc" \
+            $'/^Cflags:/a\\\nCflags.private: -DLIBSSH_STATIC\n/^Libs:/ i\\\nRequires.private: libssl libcrypto zlib\\\nLibs.private: -liphlpapi -lws2_32 -lpthread'
     fi
     enabled libtheora && do_pacman_install libtheora
-    enabled libcaca && do_addOption --extra-cflags=-DCACA_STATIC && do_pacman_install libcaca
-    grep_and_sed '-lz' "$MINGW_PREFIX"/lib/pkgconfig/caca.pc \
-        '/Requires:/s|[[:blank:]]*$| zlib|;s|[[:blank:]]+-lz||'
+    enabled libcaca && do_pacman_install libcaca
+    grep_or_sed 'CACA_STATIC' "$MINGW_PREFIX/lib/pkgconfig/caca.pc" \
+        $'/^Cflags:/a\\\nCflags.private: -DCACA_STATIC\n/Requires:/s|[[:blank:]]*$| zlib|;s|[[:blank:]]+-lz||'
     enabled libmodplug && do_addOption --extra-cflags=-DMODPLUG_STATIC && do_pacman_install libmodplug
     enabled libopenjpeg && do_pacman_install openjpeg2
     if enabled libopenh264; then
@@ -2421,9 +2422,8 @@ if [[ $ffmpeg != no ]]; then
         { do_pacman_remove fftw; do_pacman_install chromaprint; }
     if enabled libzmq; then
         do_pacman_install zeromq
-        grep_or_sed ws2_32 "$MINGW_PREFIX"/lib/pkgconfig/libzmq.pc \
-            's/-lpthread/& -lws2_32/'
-        do_addOption --extra-cflags=-DZMQ_STATIC
+        grep_or_sed 'ZMQ_STATIC' "$MINGW_PREFIX/lib/pkgconfig/libzmq.pc" \
+            $'/^Cflags:/a\\\nCflags.private: -DZMQ_STATIC\ns/-lpthread/& -lws2_32/'
     fi
     enabled frei0r && do_addOption --extra-libs=-lpsapi
     enabled libxml2 && do_addOption --extra-cflags=-DLIBXML_STATIC
@@ -2460,23 +2460,26 @@ if [[ $ffmpeg != no ]]; then
     if do_vcs "$ffmpegPath" ffmpeg; then
         ff_base_commit=$(git rev-parse HEAD)
         do_changeFFmpegConfig "$license"
+        # Keep option changes below in sync between FFMPEG_OPTS and FFMPEG_OPTS_SHARED.
         [[ -f ffmpeg_extra.sh ]] && source ffmpeg_extra.sh
         if enabled libsvthevc; then
             do_patch "https://raw.githubusercontent.com/1480c1/SVT-HEVC/master/ffmpeg_plugin/master-0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch" am ||
-                do_removeOption --enable-libsvthevc
+                {
+                    do_removeOption --enable-libsvthevc
+                    do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
+                }
         fi
         if enabled libsvtvp9; then
             do_patch "https://raw.githubusercontent.com/1480c1/SVT-VP9/master/ffmpeg_plugin/master-0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch" am ||
-                do_removeOption --enable-libsvtvp9
+                {
+                    do_removeOption --enable-libsvtvp9
+                    do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
+                }
         fi
         if enabled libvvdec; then
             do_patch "https://raw.githubusercontent.com/wiki/fraunhoferhhi/vvdec/data/patch/v9-libvvdec.patch"  ||
                 do_removeOptions --enable-libvvdec
         fi
-
-        enabled libsvthevc || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvthevc"
-        enabled libsvtav1 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtav1"
-        enabled libsvtvp9 || do_removeOption FFMPEG_OPTS_SHARED "--enable-libsvtvp9"
 
         # Remove explicit include of DeckLinkAPI_v14_2_1.h since it's merged into the main file for Windows
         enabled decklink && sed -ri 's|#include <DeckLinkAPI_v14_2_1.h>||g' libavdevice/decklink_{dec,enc,common}.cpp
@@ -2485,18 +2488,6 @@ if [[ $ffmpeg != no ]]; then
         enabled audiotoolbox && do_addOption --extra-libs=-lAudioToolboxWrapper && do_addOption --disable-outdev=audiotoolbox &&
             do_addOption FFMPEG_OPTS_SHARED --extra-libs=-lAudioToolboxWrapper && do_addOption FFMPEG_OPTS_SHARED --disable-outdev=audiotoolbox &&
             sed -ri "s/enabled audiotoolbox && check_apple_framework.*/enable audiotoolbox/g" configure
-
-        if enabled openal &&
-            pc_exists "openal"; then
-            OPENAL_LIBS=$($PKG_CONFIG --libs openal)
-            export OPENAL_LIBS
-            do_addOption "--extra-cflags=-DAL_LIBTYPE_STATIC"
-            do_addOption FFMPEG_OPTS_SHARED "--extra-cflags=-DAL_LIBTYPE_STATIC"
-            for _openal_flag in $($PKG_CONFIG --cflags openal); do
-                do_addOption "--extra-cflags=$_openal_flag"
-            done
-            unset _openal_flag
-        fi
 
         if enabled gmp; then
             do_pacman_install gmp
@@ -2664,7 +2655,7 @@ if [[ $libheif != n ]] &&
 
     # this depends on CMake overrides -DBUILD_SHARED_LIBS=off in do_cmake, may break if that behavior changes.
     [[ $libheif = shared ]] && extracommands+=(-DBUILD_SHARED_LIBS=ON)
-    CFLAGS+=" ${extracflags[@]}" CXXFLAGS+=" ${extracflags[@]}" \
+    CFLAGS+=" ${extracflags[*]}" CXXFLAGS+=" ${extracflags[*]}" \
         do_cmakeinstall video -DBUILD_TESTING=OFF -DWITH_GDK_PIXBUF=OFF "${extracommands[@]}"
 
     # this subfolder is for plugins and is empty since we didn't build any plugin so we delete it
@@ -2698,11 +2689,9 @@ if [[ $mpv != n ]] && pc_exists libavcodec libavformat libswscale libavfilter; t
         unset _luajit_args
     fi
 
-    do_pacman_remove uchardet-git
     ! mpv_disabled uchardet && do_pacman_install uchardet
     ! mpv_disabled libarchive && do_pacman_install libarchive
 
-    do_pacman_remove angleproject-git
     _check=(EGL/egl.h)
     if mpv_enabled egl-angle && do_vcs "$SOURCE_REPO_ANGLE"; then
         do_simple_print "${orange}mpv will need libGLESv2.dll and libEGL.dll to use gpu-context=angle"'!'
